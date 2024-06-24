@@ -112,6 +112,10 @@ def build_model_and_enc(model_path):
             enc = AutoTokenizer.from_pretrained(
                 config.tokenizer_name, trust_remote_code=True
             )
+        elif "baichuan" in config.__class__.__name__.lower():
+            enc = AutoTokenizer.from_pretrained(
+                model_path, trust_remote_code=True, use_fast=False, padding_side='left', truncation_side='left'
+            )
         else:
             enc = AutoTokenizer.from_pretrained(
                 model_path, use_fast=False, trust_remote_code=True

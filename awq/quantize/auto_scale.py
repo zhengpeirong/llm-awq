@@ -439,6 +439,74 @@ def auto_scale_block(module, module_kwargs, w_bit, q_config, input_feat):
                 inp=input_feat["mlp.dense_4h_to_h"],
             )
         )
+    elif "baichuan" in str(module.__class__).lower():
+                # attention input
+        scales_list.append(
+            _auto_get_scale(
+                prev_op=module.input_layernorm,
+                layers=[module.self_attn.W_pack],
+                inp=input_feat["self_attn.W_pack"],
+                module2inspect=module.self_attn,
+                kwargs=module_kwargs,
+            )
+        )
+        # attn out
+        scales_list.append(
+            _auto_get_scale(
+                prev_op=module.self_attn.W_pack,
+                layers=[module.self_attn.o_proj],
+                inp=input_feat["self_attn.o_proj"],
+            )
+        )
+        # mlp
+        if "mlp" == module.mlp.__class__.__name__.lower():
+            scales_list.append(
+                _auto_get_scale(
+                    prev_op=module.post_attention_layernorm,
+                    layers=[module.mlp.gate_proj, module.mlp.up_proj],
+                    inp=input_feat["mlp.gate_proj"],
+                    module2inspect=module.mlp,
+                )
+            )
+            scales_list.append(
+                _auto_get_scale(
+                    prev_op=module.mlp.up_proj,
+                    layers=[module.mlp.down_proj],
+                    inp=input_feat["mlp.down_proj"],
+                )
+            )
+        elif 'mixtralmlp' == module.mlp.__class__.__name__.lower():
+            for expert in module.mlp.local_experts_routed:
+                scales_list.append(
+                    _auto_get_scale(
+                        prev_op=module.post_attention_layernorm,
+                        layers=[expert.gate_proj, expert.up_proj],
+                        inp=input_feat["mlp.gate_proj"],
+                    )
+                )
+                scales_list.append(
+                    _auto_get_scale(
+                        prev_op=expert.up_proj,
+                        layers=[expert.down_proj],
+                        inp=input_feat["mlp.down_proj"],
+                    )
+                )
+            if module.mlp.local_experts_fixed is not None:
+                scales_list.append(
+                    _auto_get_scale(
+                        prev_op=module.post_attention_layernorm,
+                        layers=[module.mlp.local_experts_fixed.gate_proj, module.mlp.local_experts_fixed.up_proj],
+                        inp=input_feat["mlp.gate_proj"],
+                    )
+                )
+                scales_list.append(
+                    _auto_get_scale(
+                        prev_op=module.mlp.local_experts_fixed.up_proj,
+                        layers=[module.mlp.local_experts_fixed.down_proj],
+                        inp=input_feat["mlp.down_proj"],
+                    )
+                )
+        
     else:
         raise NotImplementedError(f"{type(module)} not supported yet!")
 
@@ -458,7 +526,7 @@ def apply_scale(module, scales_list, input_feat_dict=None):
         if isinstance(prev_op, nn.Linear):
             assert len(layers) == 1
             scale_fc_fc(prev_op, layers[0], scales)
-        elif isinstance(prev_op, (nn.LayerNorm, LlamaRMSNorm)):
+        elif isinstance(prev_op, (nn.LayerNorm, LlamaRMSNorm)) or "rmsnorm" in str(prev_op.__class__).lower():
             scale_ln_fcs(prev_op, layers, scales)
         elif isinstance(prev_op, (nn.GELU, BloomGelu, GELUActivation)):
             new_module = ScaledActivation(prev_op, scales)
