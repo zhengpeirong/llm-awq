@@ -476,36 +476,80 @@ def auto_scale_block(module, module_kwargs, w_bit, q_config, input_feat):
                 )
             )
         elif 'mixtralmlp' == module.mlp.__class__.__name__.lower():
-            for expert in module.mlp.local_experts_routed:
+            
+            scales_list.append(
+                _auto_get_scale(
+                    prev_op=module.post_attention_layernorm,  # Assuming this is the previous layer
+                    layers=[module.moe.router],
+                    inp=input_feat["moe.router"],
+                )
+            )
+            
+            for i in range(module.moe.num_local_experts_routed):
+                expert = module.moe.local_experts_routed[i]
                 scales_list.append(
                     _auto_get_scale(
-                        prev_op=module.post_attention_layernorm,
+                        prev_op=module.moe.router,  # The router is the previous operation for experts
                         layers=[expert.gate_proj, expert.up_proj],
-                        inp=input_feat["mlp.gate_proj"],
+                        inp=input_feat[f"moe.local_experts_routed.{i}.gate_proj"],
+                        module2inspect=expert,
                     )
                 )
                 scales_list.append(
                     _auto_get_scale(
                         prev_op=expert.up_proj,
                         layers=[expert.down_proj],
-                        inp=input_feat["mlp.down_proj"],
+                        inp=input_feat[f"moe.local_experts_routed.{i}.down_proj"],
                     )
                 )
-            if module.mlp.local_experts_fixed is not None:
+            
+            if module.moe.local_experts_fixed is not None:
+                fixed_expert = module.moe.local_experts_fixed
                 scales_list.append(
                     _auto_get_scale(
-                        prev_op=module.post_attention_layernorm,
-                        layers=[module.mlp.local_experts_fixed.gate_proj, module.mlp.local_experts_fixed.up_proj],
-                        inp=input_feat["mlp.gate_proj"],
+                        prev_op=module.moe.router,  # The router is the previous operation for the fixed expert too
+                        layers=[fixed_expert.gate_proj, fixed_expert.up_proj],
+                        inp=input_feat["moe.local_experts_fixed.gate_proj"],
+                        module2inspect=fixed_expert,
                     )
                 )
                 scales_list.append(
                     _auto_get_scale(
-                        prev_op=module.mlp.local_experts_fixed.up_proj,
-                        layers=[module.mlp.local_experts_fixed.down_proj],
-                        inp=input_feat["mlp.down_proj"],
+                        prev_op=fixed_expert.up_proj,
+                        layers=[fixed_expert.down_proj],
+                        inp=input_feat["moe.local_experts_fixed.down_proj"],
                     )
                 )
+            # for expert in module.mlp.local_experts_routed:
+            #     scales_list.append(
+            #         _auto_get_scale(
+            #             prev_op=module.post_attention_layernorm,
+            #             layers=[expert.gate_proj, expert.up_proj],
+            #             inp=input_feat["mlp.gate_proj"],
+            #         )
+            #     )
+            #     scales_list.append(
+            #         _auto_get_scale(
+            #             prev_op=expert.up_proj,
+            #             layers=[expert.down_proj],
+            #             inp=input_feat["mlp.down_proj"],
+            #         )
+            #     )
+            # if module.mlp.local_experts_fixed is not None:
+            #     scales_list.append(
+            #         _auto_get_scale(
+            #             prev_op=module.post_attention_layernorm,
+            #             layers=[module.mlp.local_experts_fixed.gate_proj, module.mlp.local_experts_fixed.up_proj],
+            #             inp=input_feat["mlp.gate_proj"],
+            #         )
+            #     )
+            #     scales_list.append(
+            #         _auto_get_scale(
+            #             prev_op=module.mlp.local_experts_fixed.up_proj,
+            #             layers=[module.mlp.local_experts_fixed.down_proj],
+            #             inp=input_feat["mlp.down_proj"],
+            #         )
+            #     )
         
     else:
         raise NotImplementedError(f"{type(module)} not supported yet!")
