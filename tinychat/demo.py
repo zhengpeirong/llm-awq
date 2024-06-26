@@ -13,7 +13,7 @@ from tinychat.utils.tune import device_warmup, tune_all_wqlinears
 
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # opt_params in TinyLLMEngine
 gen_params = AttributeDict(
