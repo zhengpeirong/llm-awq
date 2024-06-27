@@ -1,5 +1,6 @@
-MODEL_PATH=/aifs4su/mmdata/hf_download
-MODEL_NAME=llama-2-70b
+MODEL_PATH=/aifs4su/baichuan/share
+MODEL_NAME=baichuan-moe-hf-latest
+
 
 export CUDA_LAUNCH_BLOCKING=1
 export TORCH_USE_CUDA_DSA=1
@@ -19,10 +20,10 @@ export TORCH_USE_CUDA_DSA=1
 
 
 # Run the TinyChat demo:
-CUDA_VISIBLE_DEVICES=3 python demo.py --model_type llama \
+CUDA_VISIBLE_DEVICES=2 python demo.py --model_type baichuan_moe \
     --model_path $MODEL_PATH/$MODEL_NAME \
-    --precision W16A16
-        # --q_group_size 128 --load_quant ../quant_cache/llama-2-70b-w4-g128-awq-v2.pt \
+    --precision W4A16 \
+    --q_group_size 128 --load_quant ../quant_cache/baichuan-moe-hf-latest-w4-g128-awq-v2.pt 
 
 # # Split checkpoint into shards for mem-efficient loading:
 # python split_ckpt.py --input_path quant_cache/llama-2-7b-chat-w4-g128-awq.pt \

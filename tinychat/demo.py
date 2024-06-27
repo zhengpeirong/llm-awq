@@ -125,6 +125,7 @@ if __name__ == "__main__":
         "llama",
         "falcon",
         "mpt",
+        "baichuan_moe"
     ], "We only support llama & falcon & mpt now"
     assert args.precision in ["W4A16", "W16A16"], "We only support W4A16/W16A16 now"
 
@@ -141,7 +142,7 @@ if __name__ == "__main__":
         print("=" * 80)
     # TODO (Haotian): a more elegant implementation here.
     # We need to update these global variables before models use them.
-    from tinychat.models import FalconForCausalLM, LlamaForCausalLM, MPTForCausalLM
+    from tinychat.models import FalconForCausalLM, LlamaForCausalLM, MPTForCausalLM, BaiChuanMoEForCausalLM
 
     def skip(*args, **kwargs):
         pass
@@ -168,6 +169,7 @@ if __name__ == "__main__":
         "llama": LlamaForCausalLM,
         "falcon": FalconForCausalLM,
         "mpt": MPTForCausalLM,
+        "baichuan_moe": BaiChuanMoEForCausalLM,
     }
 
     if args.precision == "W4A16":
@@ -182,12 +184,18 @@ if __name__ == "__main__":
                 model, args.load_quant, 4, args.q_group_size, args.device
             )
     else:
-        loaded_model = AutoModelForCausalLM.from_pretrained(
-            args.model_path,
-            config=config,
-            torch_dtype=torch.float16,
-            trust_remote_code=True,
-        )
+
+        if "baichuan" in config.__class__.__name__.lower():
+            loaded_model = AutoTokenizer.from_pretrained(
+                args.model_path, trust_remote_code=True, use_fast=False, padding_side='left', truncation_side='left'
+            )
+        else:
+            loaded_model = AutoModelForCausalLM.from_pretrained(
+                args.model_path,
+                config=config,
+                torch_dtype=torch.float16,
+                trust_remote_code=True,
+            )
         model = model_type_dict[args.model_type.lower()](config).half().to(args.device)
         model.load_state_dict(loaded_model.state_dict())
 
