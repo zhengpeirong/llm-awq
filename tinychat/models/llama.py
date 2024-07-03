@@ -79,7 +79,10 @@ class LlamaAttentionFused(nn.Module):
         self.num_heads = args.num_attention_heads
         self.head_dim = self.hidden_size // self.num_heads
 
-        self.num_key_value_heads = args.num_key_value_heads
+        if not hasattr(args, "num_key_value_heads"):
+            self.num_key_value_heads = args.num_attention_heads
+        else:
+            self.num_key_value_heads = args.num_key_value_heads
         self.num_key_value_groups = self.num_heads // self.num_key_value_heads
         self.max_position_embeddings = args.max_position_embeddings
         self.rope_theta = args.rope_theta

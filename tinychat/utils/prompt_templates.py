@@ -301,12 +301,14 @@ def get_prompter(model_type, model_path="", short_prompt=False, empty_prompt=Fal
             return MPTChatPrompter()
         else:
             return MPTPrompter()
+    elif model_type.lower() == 'baichuan_moe':
+        return Llama3Prompter()
     else:
         raise ValueError(f"model type {model_type} is not supported")
 
 
 def get_stop_token_ids(model_type, model_path=""):
-    if model_type.lower() == "llama":
+    if model_type.lower() == "llama" or "baichuan_moe":
         if ("llama-3" in model_path.lower() or "llama3" in model_path.lower()) and "30b" not in model_path.lower():
             # llama3
             return [128001, 128009]
